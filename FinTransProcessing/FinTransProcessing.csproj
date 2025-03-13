@@ -8,21 +8,35 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="appsettings.json" />
     <None Remove="transactions_10_thousand.csv" />
 	  <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.3" />	  
 	  <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="9.0.3">
 		  <PrivateAssets>all</PrivateAssets>
 		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-	  </PackageReference>
+	  </PackageReference>	  
+	  <PackageReference Include="Microsoft.Extensions.Configuration" Version="9.0.3" />	  
+	  <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="9.0.3" />
 	  <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.3" />
   </ItemGroup>
 
 
 
   <ItemGroup>
+    <Content Include="appsettings.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <Content Include="transactions_10_thousand.csv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+  </ItemGroup>
+
+
+
+  <ItemGroup>
+    <None Update="appsettings.Development.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>
