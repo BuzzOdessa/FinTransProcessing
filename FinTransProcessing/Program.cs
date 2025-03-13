@@ -1,18 +1,62 @@
 ﻿// See https://aka.ms/new-console-template for more information
+using System;
 using System.Globalization;
+using System.Numerics;
 using FinTransProcessing;
+using FinTransProcessing.EF;
+using FinTransProcessing.Model;
 
 //var file = @"D:\NET\HILEL\HomeWorks\HW-17\transactions_10_thousand.csv";
 var file = @"transactions_10_thousand.csv";
 //await To_Console();
+//PerformDatabaseOperations();
+await To_Database(new(),10000 );
 
-ParsedData ParseLine(string lineData)
+async Task To_Database(object lockObj, int portion =1000)
+{
+    int cnt = 0;
+    var semaphoreSlim = new SemaphoreSlim(1); // Сугубо для   ParseFileAsync  
+    List<TransactionData> transactionDatas = new();
+    using (var db = new FinTransDbContext())
+    {
+      db.makeLog = false;
+      await foreach (var data in Parser.ParseFileAsync(file, semaphoreSlim))
+      {   
+            lock (lockObj)
+            {                
+                transactionDatas.Add(data);
+                if (transactionDatas.Count % portion == 0)
+                { 
+                    db.Transactions.AddRange(transactionDatas);
+                    db.SaveChanges();
+                    transactionDatas.Clear();
+                }
+                if (cnt % 1000 == 0)
+                    Console.WriteLine($"Обработано {cnt} записей");
+            }
+            ++cnt;
+      }
+    // Если какой то остаток остался
+      if (transactionDatas.Count > 0)
+      {
+        db.Transactions.AddRange(transactionDatas);
+        db.SaveChanges();
+        transactionDatas.Clear();
+      }
+    }
+
+    Console.WriteLine(cnt);
+}
+
+
+//https://www.codeproject.com/Tips/1046655/Very-Basic-Console-Application-Using-Entity-Framew
+TransactionData ParseLine(string lineData)
 { 
     var splitLine = lineData.Split(',');
 
     var dateStr = splitLine[2].Trim();
 
-    return new ParsedData()
+    return new TransactionData()
     {
         TransactionId = splitLine[0],
         UserId = splitLine[1],
@@ -27,42 +71,12 @@ ParsedData ParseLine(string lineData)
 }
 
 
-async IAsyncEnumerable<ParsedData> ParseFileAsync(string fileName, 
-    SemaphoreSlim semaphoreSlim, 
-    CancellationToken cancelToken = default)
-{
-    using var reader = new StreamReader(fileName);
-    
-    while (!reader.EndOfStream)
-    {
-        
-        await semaphoreSlim.WaitAsync(cancelToken);
-        var line = await reader.ReadLineAsync(cancelToken);
-        semaphoreSlim.Release();
-        // Тут можно еще всякие проверки втулить
-        if (line == null)
-            continue;
-
-        ParsedData parsedData ;
-        try
-        {
-            parsedData = ParseLine(line);
-        }
-        catch (Exception)
-        {
-            continue; // Тут можно залогировать ошибы  если шо
-        }
-        yield return parsedData; // В трай не лизе
-    }
-}
-
-
 async Task To_Console ()
 {
         int cnt = 0;
         var semaphoreSlim = new SemaphoreSlim(1);
       
-        await foreach (var data in ParseFileAsync(file, semaphoreSlim))
+        await foreach (var data in Parser.ParseFileAsync(file, semaphoreSlim))
         {
             //await semaphoreSlim1.WaitAsync();
             lock (data)
@@ -78,6 +92,10 @@ async Task To_Console ()
 
 
 
+void FirstBadCode ()
+{ 
+
+
 
 Console.WriteLine("");
 Console.WriteLine("-------------------------------------");
@@ -90,7 +108,7 @@ Console.WriteLine("-------------------------------------");
 Console.WriteLine("UserId".PadRight(38) + "Income".PadRight(8) +" Expense");
 
 var semaphoreSlim = new SemaphoreSlim(1);
-var all = ParseFileAsync(file, semaphoreSlim).ToBlockingEnumerable();
+var all = Parser.ParseFileAsync(file, semaphoreSlim).ToBlockingEnumerable();
 var userStats = 
             from data in all
             group data by new { data.UserId} into result
@@ -134,4 +152,5 @@ Console.WriteLine("Category".PadRight(18) + "  Count");
 foreach (var data in categories)
 {
     Console.WriteLine(data.Category.PadRight(18) + "|  " + data.Count.ToString());
+}
 }
